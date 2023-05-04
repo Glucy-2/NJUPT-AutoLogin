@@ -454,7 +454,6 @@ def connect_wifi(acc, wireless_iface) -> bool:
     """
     logger = Logger.logger
     profile = pywifi.Profile()
-    wireless_iface.remove_all_network_profiles()
     match acc.isp:
         case "cmcc":
             profile.ssid = "NJUPT-CMCC"
@@ -469,21 +468,8 @@ def connect_wifi(acc, wireless_iface) -> bool:
     while not done:
         wireless_iface_status = wireless_iface.status()
         if wireless_iface_status == pywifi.const.IFACE_CONNECTED:
-            connected_networks = wireless_iface.network_profiles()
-            for ntwk in connected_networks:
-                if ntwk.ssid == profile.ssid:
-                    logger.info(
-                        f"无线网卡 {wireless_iface.name()}（{acc.iface}）已连接到 {profile.ssid} ！"
-                    )
-                    done = True
-                    result = True
-                    break
-            else:
-                logger.debug(
-                    f"无线网卡 {wireless_iface.name()}（{acc.iface}）未连接到 {profile.ssid} ！"
-                )
-                wireless_iface.disconnect()
-                logger.debug(f"无线网卡 {wireless_iface.name()}（{acc.iface}）断开连接！")
+            wireless_iface.disconnect()
+            logger.debug(f"无线网卡 {wireless_iface.name()}（{acc.iface}）断开连接！")
         elif wireless_iface_status == pywifi.const.IFACE_CONNECTING:
             logger.debug(
                 f"无线网卡 {wireless_iface.name()}（{acc.iface}）正在连接到 {profile.ssid} ！"
@@ -674,6 +660,7 @@ def main():
     args = parser.parse_args()
 
     signal.signal(signal.SIGINT, signal.SIG_DFL)  # 使Ctrl+C可用
+
     if sys.gettrace() or args.debug:
         Logger(logging.DEBUG)
     else:
