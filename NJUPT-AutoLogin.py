@@ -565,7 +565,11 @@ def login_account(acc: Config, wireless: bool) -> bool:
 
     # 获取登录URL
     logger.debug(f"从 {Config.redirect_url} 获取登录网页URL...")
-    r = s.get(Config.redirect_url, proxies={"http": None}).text
+    try:
+        r = s.get(Config.redirect_url, proxies={"http": None}).text
+    except TimeoutError:
+        logger.error(f"从 {Config.redirect_url} 获取登录网页URL超时！")
+        return False
     login_url_start = r.find("http://")
     login_url_end = r.find('"', login_url_start)
     login_url = r[login_url_start:login_url_end]
@@ -616,7 +620,6 @@ def login_account(acc: Config, wireless: bool) -> bool:
 
     logger.debug(f"解析登录结果URL...")
     parsed_url = urlparse(login_response_url)
-    err_code = unquote(b64decode(parse_qs(parsed_url.query)["ErrorMsg"][0]))
 
     match parsed_url.path:
         case "/3.htm":
@@ -626,6 +629,8 @@ def login_account(acc: Config, wireless: bool) -> bool:
             return True
         case "/2.htm":
             s.close()
+            logger.debug("解析错误原因...")
+            err_code = unquote(b64decode(parse_qs(parsed_url.query)["ErrorMsg"][0]))
             logger.warning(f"{acc.iface} 登录 {login} 失败，可能的原因：{check_err_msg(err_code)}")
             return False
         case _:
