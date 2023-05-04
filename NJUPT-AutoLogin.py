@@ -19,7 +19,7 @@ from requests_toolbelt.adapters.source import SourceAddressAdapter
 
 
 __author__ = "Glucy2 (https://github.com/Glucy-2)"
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 
 class Logger:
