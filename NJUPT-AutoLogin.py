@@ -653,9 +653,10 @@ def main():
     parser.description = """
     南京邮电大学校园网自动登录程序
     首次启动时会生成配置文件 config.ini，可根据需要修改
+    日志存放在 autologin.log 中，旧的日志自动添加后缀，保留7天
     """
     parser.add_argument("-c", "--configure", action="store_true", help="生成配置文件")
-    parser.add_argument("-d", "--debug", action="store_true", help="调试模式")
+    parser.add_argument("-d", "--debug", action="store_true", help="调试模式（在日志中添加DEBUG等级的信息）")
     parser.add_argument("-n", "--noloop", action="store_true", help="不循环登录（仅登录一次就退出）")
     args = parser.parse_args()
 
