@@ -468,8 +468,12 @@ def connect_wifi(acc, wireless_iface) -> bool:
     while not done:
         wireless_iface_status = wireless_iface.status()
         if wireless_iface_status == pywifi.const.IFACE_CONNECTED:
-            wireless_iface.disconnect()
-            logger.debug(f"无线网卡 {wireless_iface.name()}（{acc.iface}）断开连接！")
+            if connect_count:
+                done = True
+                result = True
+            else:
+                wireless_iface.disconnect()
+                logger.debug(f"无线网卡 {wireless_iface.name()}（{acc.iface}）断开连接！")
         elif wireless_iface_status == pywifi.const.IFACE_CONNECTING:
             logger.debug(
                 f"无线网卡 {wireless_iface.name()}（{acc.iface}）正在连接到 {profile.ssid} ！"
@@ -524,16 +528,19 @@ def login_account(acc: Config, wireless: bool) -> bool:
             return False
 
     waited_time = 0
-    while waited_time < 3:
+    while waited_time <= 3:
         logger.debug(f"尝试获取 {acc.iface} 的IP地址……")
         addrs = netifaces.ifaddresses(acc.iface)
 
         if netifaces.AF_INET in addrs:
             ip = addrs[netifaces.AF_INET][0]["addr"]
+            break
         else:
             logger.error(f"找不到 {acc.iface} 的IP地址！该网卡是否已连接？")
-            return False
-        waited_time += 1
+            time.sleep(1)
+            waited_time += 1
+            if waited_time == 3:
+                return False
 
     try:
         s = socket.create_connection(
