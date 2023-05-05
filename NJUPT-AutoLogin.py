@@ -528,13 +528,14 @@ def login_account(acc: Config, wireless: bool) -> bool:
             return False
 
     waited_time = 0
-    while waited_time <= 3:
+    done = False
+    while waited_time <= 3 and not done:
         logger.debug(f"尝试获取 {acc.iface} 的IP地址……")
         addrs = netifaces.ifaddresses(acc.iface)
 
         if netifaces.AF_INET in addrs:
             ip = addrs[netifaces.AF_INET][0]["addr"]
-            break
+            done = True
         else:
             logger.error(f"找不到 {acc.iface} 的IP地址！该网卡是否已连接？")
             time.sleep(1)
