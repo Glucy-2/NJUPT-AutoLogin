@@ -448,52 +448,59 @@ def check_internet(s, address) -> bool:
     return True if sta_code == 204 else False
 
 
-def connect_wifi(acc, wireless_iface) -> bool:
+def connect_wifi(acc) -> bool:
     """
     连接WiFi，如果成功则返回True，否则返回False
     """
     logger = Logger.logger
-    profile = pywifi.Profile()
-    match acc.isp:
-        case "cmcc":
-            profile.ssid = "NJUPT-CMCC"
-        case "njxy":
-            profile.ssid = "NJUPT-CHINANET"
-        case _:
-            profile.ssid = "NJUPT"
-    logger.debug(f"要连接的WiFi的SSID：{profile.ssid}")
-    profile.auth = pywifi.const.AUTH_ALG_OPEN
-    done = False
-    connect_count = 0
-    while not done:
-        wireless_iface_status = wireless_iface.status()
-        if wireless_iface_status == pywifi.const.IFACE_CONNECTED:
-            if connect_count:
-                done = True
-                result = True
-            else:
-                wireless_iface.disconnect()
-                logger.debug(f"无线网卡 {wireless_iface.name()}（{acc.iface}）断开连接！")
-        elif wireless_iface_status == pywifi.const.IFACE_CONNECTING:
-            logger.debug(
-                f"无线网卡 {wireless_iface.name()}（{acc.iface}）正在连接到 {profile.ssid} ！"
-            )
-        elif wireless_iface_status == pywifi.const.IFACE_DISCONNECTED:
-            if connect_count < 3:
-                logger.info(f"无线网卡 {wireless_iface.name()}（{acc.iface}）断开连接！")
-                wireless_profile = wireless_iface.add_network_profile(profile)
-                wireless_iface.connect(wireless_profile)
-                connect_count += 1
-                logger.debug(
-                    f"无线网卡 {wireless_iface.name()}（{acc.iface}）正在连接到 {profile.ssid} ！"
-                )
-                time.sleep(1)
-            else:
-                logger.error(f"无线网卡 {wireless_iface.name()}（{acc.iface}）连接失败！")
-                done = True
-                result = False
+    wireless_ifaces = pywifi.PyWiFi().interfaces()
+    for wireless_iface in wireless_ifaces:
+        if str(wireless_iface._raw_obj["guid"]) == acc.iface:
+            profile = pywifi.Profile()
+            match acc.isp:
+                case "cmcc":
+                    profile.ssid = "NJUPT-CMCC"
+                case "njxy":
+                    profile.ssid = "NJUPT-CHINANET"
+                case _:
+                    profile.ssid = "NJUPT"
+            logger.debug(f"要连接的WiFi的SSID：{profile.ssid}")
+            profile.auth = pywifi.const.AUTH_ALG_OPEN
+            done = False
+            connect_count = 0
+            while not done:
+                wireless_iface_status = wireless_iface.status()
+                if wireless_iface_status == pywifi.const.IFACE_CONNECTED:
+                    if connect_count:
+                        done = True
+                        result = True
+                    else:
+                        wireless_iface.disconnect()
+                        logger.debug(f"无线网卡 {wireless_iface.name()}（{acc.iface}）断开连接！")
+                elif wireless_iface_status == pywifi.const.IFACE_CONNECTING:
+                    logger.debug(
+                        f"无线网卡 {wireless_iface.name()}（{acc.iface}）正在连接到 {profile.ssid} ！"
+                    )
+                    time.sleep(0.5)
+                elif wireless_iface_status == pywifi.const.IFACE_DISCONNECTED:
+                    if connect_count < 3:
+                        logger.info(f"无线网卡 {wireless_iface.name()}（{acc.iface}）断开连接！")
+                        wireless_profile = wireless_iface.add_network_profile(profile)
+                        wireless_iface.connect(wireless_profile)
+                        connect_count += 1
+                        logger.debug(
+                            f"无线网卡 {wireless_iface.name()}（{acc.iface}）正在连接到 {profile.ssid} ！"
+                        )
+                        time.sleep(1)
+                    else:
+                        logger.error(f"无线网卡 {wireless_iface.name()}（{acc.iface}）连接失败！")
+                        done = True
+                        result = False
 
-    return result
+            return result
+    else:
+        logger.error(f"找不到 {acc.iface} 无线网卡！")
+        return False
 
 
 def check_err_msg(err_code):
@@ -507,6 +514,26 @@ def check_err_msg(err_code):
     return err_msg
 
 
+def get_ip(iface):
+    """
+    获取网卡的IP（v4）地址，如果成功则返回IP地址，否则返回None
+    """
+    logger = Logger.logger
+    waited_time = 0
+    while waited_time <= 3:
+        logger.debug(f"尝试获取 {iface} 的IP地址……")
+        addrs = netifaces.ifaddresses(iface)
+
+        if netifaces.AF_INET in addrs:
+            return addrs[netifaces.AF_INET][0]["addr"]
+        else:
+            logger.warning(f"找不到 {iface} 的IP地址！该网卡是否已连接？")
+            time.sleep(1)
+            waited_time += 1
+            if waited_time == 3:
+                return None
+
+
 def login_account(acc: Config, wireless: bool) -> bool:
     """
     登录账号，如果成功则返回True，否则返回False
@@ -517,49 +544,25 @@ def login_account(acc: Config, wireless: bool) -> bool:
         logger.info(f"{acc.iface} 上的 {acc.account} 未到登录时间！")
         return False
 
-    if wireless:
-        wireless_ifaces = pywifi.PyWiFi().interfaces()
-        for iface in wireless_ifaces:
-            if str(iface._raw_obj["guid"]) == acc.iface:
-                connect_wifi(acc, iface)
-                break
-        else:
-            logger.error(f"找不到 {acc.iface} 无线网卡！")
-            return False
-
-    waited_time = 0
-    done = False
-    while waited_time <= 3 and not done:
-        logger.debug(f"尝试获取 {acc.iface} 的IP地址……")
-        addrs = netifaces.ifaddresses(acc.iface)
-
-        if netifaces.AF_INET in addrs:
-            ip = addrs[netifaces.AF_INET][0]["addr"]
-            done = True
-        else:
-            logger.error(f"找不到 {acc.iface} 的IP地址！该网卡是否已连接？")
-            time.sleep(1)
-            waited_time += 1
-            if waited_time == 3:
-                return False
-
-    try:
-        s = socket.create_connection(
-            (Config.login_host, Config.login_port), source_address=(ip, 0)
-        )
-        s.close()
-    except Exception as e:
-        logger.error(f"{acc.iface} 与登录服务器不通：{e}")
-        return False
-
     s = requests.Session()
-    s.mount("http://", SourceAddressAdapter(ip))
+    ip = get_ip(acc.iface)
+    if ip is None and not wireless:
+        return False
+    elif ip is None and wireless:
+        if connect_wifi(acc):
+            ip = get_ip(acc.iface)
+            s.mount("http://", SourceAddressAdapter(ip))
+        else:
+            return False
+    else:
+        s.mount("http://", SourceAddressAdapter(ip))
     s.trust_env = False
     s.proxies = {"all": None, "http": None}
 
     if check_internet(s, Config.check_address):
         logger.info(f"{acc.iface} 网络正常，无需登录！")
         return True
+
 
     # 获取登录URL
     logger.debug(f"从 {Config.redirect_url} 获取登录网页URL...")
