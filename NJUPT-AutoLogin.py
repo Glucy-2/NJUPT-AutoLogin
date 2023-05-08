@@ -525,18 +525,13 @@ def get_ip(iface):
     """
     logger = Logger.logger
     waited_time = 0
-    while waited_time <= 3:
-        logger.debug(f"尝试获取 {iface} 的IP地址……")
-        addrs = netifaces.ifaddresses(iface)
+    logger.debug(f"尝试获取 {iface} 的IP地址……")
+    addrs = netifaces.ifaddresses(iface)
 
-        if netifaces.AF_INET in addrs:
-            return addrs[netifaces.AF_INET][0]["addr"]
-        else:
-            logger.warning(f"找不到 {iface} 的IP地址！该网卡是否已连接？")
-            time.sleep(1)
-            waited_time += 1
-            if waited_time == 3:
-                return None
+    if netifaces.AF_INET in addrs:
+        return addrs[netifaces.AF_INET][0]["addr"]
+    else:
+        logger.warning(f"找不到 {iface} 的IP地址！该网卡是否已连接？")
 
 
 def login_account(acc: Config, wireless: bool) -> bool:
@@ -555,7 +550,16 @@ def login_account(acc: Config, wireless: bool) -> bool:
         return False
     elif ip is None and wireless:
         if connect_wifi(acc):
-            ip = get_ip(acc.iface)
+            waited_time = 0
+            while waited_time <= 3:
+                ip = get_ip(acc.iface)
+                if ip:
+                    break
+                time.sleep(1)
+                waited_time += 1
+                if waited_time >= 4:
+                    logger.error(f"无法获取 {acc.iface} 的IP地址！")
+                    return False
             s.mount("http://", SourceAddressAdapter(ip))
         else:
             return False
