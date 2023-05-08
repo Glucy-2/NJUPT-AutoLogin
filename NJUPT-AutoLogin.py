@@ -444,7 +444,11 @@ def check_internet(s, address) -> bool:
     检查是否能够连接到互联网（设置的地址是否返回204），如果能则返回True，否则返回False
     """
     logger = Logger.logger
-    sta_code = s.get(address).status_code
+    try:
+        sta_code = s.get(address).status_code
+    except Exception as e:
+        logger.error(f"检查网络连接的URL：{address}，发生异常：{e}")
+        return False
     logger.debug(f"检查网络连接的URL：{address}，返回状态码：{sta_code}")
     return True if sta_code == 204 else False
 
@@ -569,8 +573,8 @@ def login_account(acc: Config, wireless: bool) -> bool:
     logger.debug(f"从 {Config.redirect_url} 获取登录网页URL...")
     try:
         r = s.get(Config.redirect_url, proxies={"http": None}).text
-    except TimeoutError:
-        logger.error(f"从 {Config.redirect_url} 获取登录网页URL超时！")
+    except Exception as e:
+        logger.error(f"从 {Config.redirect_url} 获取登录网页URL时发生错误：{e}")
         return False
     login_url_start = r.find("http://")
     login_url_end = r.find('"', login_url_start)
@@ -701,4 +705,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    while True:
+        try:
+            main()
+        except Exception as e:
+            logger = Logger.logger
+            logger.error(f"发生错误：{e}")
+            logger.info("等待 10 秒重新运行...")
+            time.sleep(10)
