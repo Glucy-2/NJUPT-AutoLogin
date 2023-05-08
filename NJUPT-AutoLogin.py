@@ -4,7 +4,6 @@
 import os
 import sys
 import time
-import socket
 import signal
 import pywifi
 import logging
@@ -326,6 +325,7 @@ def add_account(interfaces, wireless_interface_guids) -> bool:
 def read_config():
     config = ConfigParser()
     config.read(filenames="config.ini", encoding="utf-8")
+    Config.loop_interval = int(config["shared"]["loop_interval"])
     Config.redirect_url = config["shared"]["redirect_url"]
     Config.check_address = config["shared"]["check_address"]
     Config.login_host = config["shared"]["login_host"]
@@ -355,6 +355,7 @@ def read_config():
 def write_config():
     conf = ConfigParser()
     conf.add_section("shared")
+    conf.set("shared", "loop_interval", str(Config.loop_interval))
     conf.set("shared", "redirect_url", Config.redirect_url)
     conf.set("shared", "check_address", Config.check_address)
     conf.set("shared", "login_host", Config.login_host)
